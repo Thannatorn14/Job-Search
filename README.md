@@ -3,9 +3,9 @@
 
 
 ## Team Members
--Mr. Patiphan  	Tangmongkolpaisan 	6588103
--Mr. Thanatorn Thongsuk			6588109
--Mr. Anecha    	Prasobvittaya		6588153
+##-Mr. Patiphan  	Tangmongkolpaisan 	6588103
+##-Mr. Thanatorn Thongsuk			6588109
+##-Mr. Anecha    	Prasobvittaya		6588153
 
 ## Project Overview
 This project involves the development of a system or application related to job postings. It consists of code, data files, and supporting documents. Below is a detailed breakdown of the repository contents.
