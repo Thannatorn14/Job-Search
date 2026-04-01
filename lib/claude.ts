@@ -65,7 +65,11 @@ Resume:
 ${resumeText}`;
 
   const json = await callLLM(prompt, 2048);
-  return JSON.parse(json) as ResumeProfile;
+  try {
+    return JSON.parse(json) as ResumeProfile;
+  } catch {
+    throw new Error("Failed to parse resume analysis response. Please try again.");
+  }
 }
 
 export async function matchJobsToResume(
@@ -103,13 +107,18 @@ Return array of objects (one per job):
 }]`;
 
   const json = await callLLM(prompt, 4096);
-  const scores = JSON.parse(json) as Array<{
+  let scores: Array<{
     index: number;
     matchScore: number;
     matchReason: string;
     matchingSkills: string[];
     missingSkills: string[];
   }>;
+  try {
+    scores = JSON.parse(json);
+  } catch {
+    throw new Error("Failed to parse job matching response. Please try again.");
+  }
 
   return scores.map((s) => ({
     ...jobs[s.index],

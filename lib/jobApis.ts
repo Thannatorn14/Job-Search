@@ -121,7 +121,7 @@ async function searchArbeitnow(query: string, perPage = 6): Promise<JobListing[]
       title: j.title ?? "",
       company: j.company_name ?? "Unknown",
       location: j.location ?? (j.remote ? "Remote" : ""),
-      description: j.description ?? "",
+      description: stripHtml(j.description ?? ""),
       jobType: j.job_types?.[0] ?? undefined,
       postedAt: j.created_at ? new Date(j.created_at * 1000).toISOString() : undefined,
       applyUrl: j.url ?? "",
@@ -149,7 +149,7 @@ async function searchTheMuse(query: string, perPage = 6): Promise<JobListing[]> 
       company: j.company?.name ?? "Unknown",
       location:
         j.locations?.map((l: { name: string }) => l.name).join(", ") || "Remote",
-      description: j.contents ?? "",
+      description: stripHtml(j.contents ?? ""),
       jobType: j.levels?.[0]?.name ?? undefined,
       postedAt: j.publication_date ?? undefined,
       applyUrl: j.refs?.landing_page ?? "",
@@ -158,6 +158,12 @@ async function searchTheMuse(query: string, perPage = 6): Promise<JobListing[]> 
   } catch {
     return [];
   }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 // ── Aggregator ────────────────────────────────────────────────────────────────

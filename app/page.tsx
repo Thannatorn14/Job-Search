@@ -129,7 +129,7 @@ export default function Page() {
             <div className="grid grid-cols-3 gap-4">
               {[
                 { icon: "📄", title: "Upload Resume", body: "PDF or plain text" },
-                { icon: "🔍", title: "Live Search", body: "Adzuna · JSearch · and more" },
+                { icon: "🔍", title: "Live Search", body: "Adzuna · JSearch · Remotive · Arbeitnow · The Muse" },
                 { icon: "🎯", title: "AI Ranking", body: "Match scores + skill gaps" },
               ].map((s) => (
                 <div key={s.title} className="bg-white rounded-2xl border border-gray-100 p-5 text-center shadow-sm">
@@ -202,7 +202,8 @@ export default function Page() {
             <p className="text-4xl">🔍</p>
             <p className="font-semibold text-gray-700">No live jobs found</p>
             <p className="text-sm text-gray-400 max-w-sm mx-auto">
-              Make sure you have added your{" "}
+              Remotive, Arbeitnow, and The Muse are free and require no API keys. For more
+              results, add{" "}
               <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">ADZUNA_*</code> or{" "}
               <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">RAPIDAPI_KEY</code> in{" "}
               <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env.local</code>.
@@ -212,7 +213,7 @@ export default function Page() {
       </main>
 
       <footer className="text-center py-10 text-xs text-gray-400">
-        AI Job Matcher · Built with Claude by Anthropic · Job data via Adzuna &amp; JSearch
+        AI Job Matcher · Built with Claude by Anthropic · Job data via Adzuna, JSearch, Remotive, Arbeitnow &amp; The Muse
       </footer>
     </div>
   );

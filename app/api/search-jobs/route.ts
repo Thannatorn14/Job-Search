@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         jobs: [],
         message:
-          "No jobs found. Make sure ADZUNA or RAPIDAPI keys are set in .env.local.",
+          "No jobs found. Remotive, Arbeitnow, and The Muse are free and require no keys. For more results, add ADZUNA_* or RAPIDAPI_KEY to .env.local.",
       });
     }
 
