@@ -40,31 +40,42 @@ export default function Page() {
       else form.append("text", text);
 
       const r1 = await fetch("/api/analyze-resume", { method: "POST", body: form });
-      if (!r1.ok) throw new Error((await r1.json()).error ?? "Resume analysis failed.");
+      if (!r1.ok) {
+        const body = await r1.json().catch(() => ({}));
+        throw new Error(body.error ?? "Resume analysis failed.");
+      }
 
       const { profile: p } = await r1.json();
       setProfile(p);
+
+      /* ── Step 2: search + match ── */
       setStatus({
         stage: "searching",
-        message: `Searching live jobs for "${p.jobTitles.slice(0, 2).join(", ")}"…`,
+        message: `Searching live jobs for "${(p.jobTitles ?? []).slice(0, 2).join(", ")}"…`,
         progress: 40,
       });
 
-      /* ── Step 2: search + match ── */
       const r2 = await fetch("/api/search-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile: p }),
       });
-      if (!r2.ok) throw new Error((await r2.json()).error ?? "Job search failed.");
 
+      // Show matching stage while we parse the response
       setStatus({ stage: "matching", message: "Scoring job matches with AI…", progress: 80 });
 
-      const { jobs: matched, message } = await r2.json();
+      if (!r2.ok) {
+        const body = await r2.json().catch(() => ({}));
+        throw new Error(body.error ?? "Job search failed.");
+      }
+
+      const { jobs: matched, message, total } = await r2.json();
       setJobs(matched ?? []);
       setStatus({
         stage: "done",
-        message: message ?? `Found ${matched?.length ?? 0} jobs — ranked by AI match score.`,
+        message:
+          message ??
+          `Found ${matched?.length ?? 0} matched jobs${total ? ` from ${total} listings` : ""} — ranked by AI score.`,
         progress: 100,
       });
     } catch (err) {
@@ -129,10 +140,17 @@ export default function Page() {
             <div className="grid grid-cols-3 gap-4">
               {[
                 { icon: "📄", title: "Upload Resume", body: "PDF or plain text" },
-                { icon: "🔍", title: "Live Search", body: "Adzuna · JSearch · Remotive · Arbeitnow · The Muse" },
+                {
+                  icon: "🔍",
+                  title: "Live Search",
+                  body: "Adzuna · JSearch · Remotive · Arbeitnow · The Muse",
+                },
                 { icon: "🎯", title: "AI Ranking", body: "Match scores + skill gaps" },
               ].map((s) => (
-                <div key={s.title} className="bg-white rounded-2xl border border-gray-100 p-5 text-center shadow-sm">
+                <div
+                  key={s.title}
+                  className="bg-white rounded-2xl border border-gray-100 p-5 text-center shadow-sm"
+                >
                   <div className="text-3xl mb-2">{s.icon}</div>
                   <p className="font-semibold text-gray-800 text-sm">{s.title}</p>
                   <p className="text-xs text-gray-400 mt-1">{s.body}</p>
@@ -172,9 +190,9 @@ export default function Page() {
                   className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
                 >
                   <option value={0}>All</option>
-                  <option value={40}>40 %+</option>
-                  <option value={60}>60 %+</option>
-                  <option value={80}>80 %+</option>
+                  <option value={40}>40%+</option>
+                  <option value={60}>60%+</option>
+                  <option value={80}>80%+</option>
                 </select>
               </div>
             </div>
@@ -182,7 +200,10 @@ export default function Page() {
             {visible.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                 No jobs pass the filter.{" "}
-                <button onClick={() => setMinScore(0)} className="text-blue-500 hover:underline ml-1">
+                <button
+                  onClick={() => setMinScore(0)}
+                  className="text-blue-500 hover:underline ml-1"
+                >
                   Clear filter
                 </button>
               </div>
@@ -202,10 +223,11 @@ export default function Page() {
             <p className="text-4xl">🔍</p>
             <p className="font-semibold text-gray-700">No live jobs found</p>
             <p className="text-sm text-gray-400 max-w-sm mx-auto">
-              Remotive, Arbeitnow, and The Muse are free and require no API keys. For more
+              Remotive, Arbeitnow, and The Muse are free — no API keys needed. For more
               results, add{" "}
               <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">ADZUNA_*</code> or{" "}
-              <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">RAPIDAPI_KEY</code> in{" "}
+              <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">RAPIDAPI_KEY</code>{" "}
+              in{" "}
               <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env.local</code>.
             </p>
           </div>
@@ -213,7 +235,8 @@ export default function Page() {
       </main>
 
       <footer className="text-center py-10 text-xs text-gray-400">
-        AI Job Matcher · Built with Claude by Anthropic · Job data via Adzuna, JSearch, Remotive, Arbeitnow &amp; The Muse
+        AI Job Matcher · Built with Claude by Anthropic · Job data via Adzuna, JSearch,
+        Remotive, Arbeitnow &amp; The Muse
       </footer>
     </div>
   );

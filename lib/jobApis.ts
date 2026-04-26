@@ -81,20 +81,20 @@ async function searchJSearch(query: string, perPage = 6): Promise<JobListing[]> 
 
 async function searchRemotive(query: string, limit = 8): Promise<JobListing[]> {
   try {
-    const params = new URLSearchParams({ search: query, limit: String(limit) });
+    const params = new URLSearchParams({ search: query });
     const res = await fetch(`https://remotive.com/api/remote-jobs?${params}`, {
       cache: "no-store",
     });
     if (!res.ok) return [];
     const data = await res.json();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (data.jobs ?? []).map((j: any) => ({
+    return ((data.jobs ?? []) as any[]).slice(0, limit).map((j) => ({
       id: `remotive-${j.id}`,
       title: j.title ?? "",
       company: j.company_name ?? "Unknown",
       location: j.candidate_required_location || "Remote",
-      description: j.description ?? "",
-      salary: j.salary || "",
+      description: stripHtml(j.description ?? ""),
+      salary: j.salary || undefined,
       jobType: j.job_type ?? undefined,
       postedAt: j.publication_date ?? undefined,
       applyUrl: j.url ?? "",
@@ -166,9 +166,29 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function salaryRange(min?: number, max?: number): string | undefined {
+  if (!min && !max) return undefined;
+  if (min && max) return `$${Math.round(min / 1000)}k – $${Math.round(max / 1000)}k`;
+  if (min) return `From $${Math.round(min / 1000)}k`;
+  return `Up to $${Math.round(max! / 1000)}k`;
+}
+
+function salaryFromJSearch(min?: number, max?: number, period?: string): string | undefined {
+  if (!min && !max) return undefined;
+  const suffix = period === "HOUR" ? "/hr" : period === "YEAR" ? "/yr" : "";
+  if (min && max) {
+    if (period === "YEAR")
+      return `$${Math.round(min / 1000)}k – $${Math.round(max / 1000)}k${suffix}`;
+    return `$${min} – $${max}${suffix}`;
+  }
+  return undefined;
+}
+
 // ── Aggregator ────────────────────────────────────────────────────────────────
 
 export async function searchAllSources(queries: string[]): Promise<JobListing[]> {
+  if (!queries || queries.length === 0) return [];
+
   const top = queries.slice(0, 3);
 
   const promises = top.flatMap((q) => [
@@ -182,32 +202,16 @@ export async function searchAllSources(queries: string[]): Promise<JobListing[]>
   const results = await Promise.all(promises);
   const all = results.flat();
 
-  // Deduplicate by title + company
-  const seen = new Set<string>();
+  // Deduplicate by job id first, then by title + company
+  const seenIds = new Set<string>();
+  const seenTitleCompany = new Set<string>();
+
   return all.filter((j) => {
-    const key = `${j.title.toLowerCase()}|${j.company.toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
+    if (seenIds.has(j.id)) return false;
+    const titleKey = `${j.title.toLowerCase().trim()}|${j.company.toLowerCase().trim()}`;
+    if (seenTitleCompany.has(titleKey)) return false;
+    seenIds.add(j.id);
+    seenTitleCompany.add(titleKey);
     return true;
   });
-}
-
-// ── Salary formatters ─────────────────────────────────────────────────────────
-
-function salaryRange(min?: number, max?: number): string {
-  if (!min && !max) return "";
-  if (min && max) return `$${Math.round(min / 1000)}k – $${Math.round(max / 1000)}k`;
-  if (min) return `From $${Math.round(min / 1000)}k`;
-  return `Up to $${Math.round(max! / 1000)}k`;
-}
-
-function salaryFromJSearch(min?: number, max?: number, period?: string): string {
-  if (!min && !max) return "";
-  const s = period === "HOUR" ? "/hr" : period === "YEAR" ? "/yr" : "";
-  if (min && max) {
-    if (period === "YEAR")
-      return `$${Math.round(min / 1000)}k – $${Math.round(max / 1000)}k${s}`;
-    return `$${min} – $${max}${s}`;
-  }
-  return "";
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeResume } from "@/lib/claude";
 
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -10,7 +12,15 @@ export async function POST(req: NextRequest) {
     let resumeText = "";
 
     if (file && file.size > 0) {
+      if (file.size > MAX_FILE_BYTES) {
+        return NextResponse.json(
+          { error: "File too large. Please upload a file under 10 MB." },
+          { status: 413 }
+        );
+      }
+
       const buf = Buffer.from(await file.arrayBuffer());
+
       if (file.name.toLowerCase().endsWith(".pdf")) {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const pdfParse = require("pdf-parse");
@@ -25,6 +35,13 @@ export async function POST(req: NextRequest) {
 
     if (!resumeText.trim()) {
       return NextResponse.json({ error: "No resume content provided." }, { status: 400 });
+    }
+
+    if (resumeText.trim().length < 50) {
+      return NextResponse.json(
+        { error: "Resume text is too short. Please provide more detail." },
+        { status: 400 }
+      );
     }
 
     const profile = await analyzeResume(resumeText);

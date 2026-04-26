@@ -47,9 +47,11 @@ function Bar({ score }: { score: number }) {
 export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }) {
   const [open, setOpen] = useState(false);
 
-  const date = job.postedAt
-    ? new Date(job.postedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    : null;
+  const rawDate = job.postedAt ? new Date(job.postedAt) : null;
+  const date =
+    rawDate && !isNaN(rawDate.getTime())
+      ? rawDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : null;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -96,18 +98,26 @@ export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }
         <p className="text-sm text-gray-600 leading-relaxed">{job.matchReason}</p>
 
         {/* Skill chips */}
-        <div className="flex flex-wrap gap-1.5">
-          {job.matchingSkills.slice(0, 5).map((s) => (
-            <span key={s} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded-full">
-              <CheckCircle2 className="w-3 h-3" /> {s}
-            </span>
-          ))}
-          {job.missingSkills.slice(0, 3).map((s) => (
-            <span key={s} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded-full">
-              <XCircle className="w-3 h-3" /> {s}
-            </span>
-          ))}
-        </div>
+        {((job.matchingSkills ?? []).length > 0 || (job.missingSkills ?? []).length > 0) && (
+          <div className="flex flex-wrap gap-1.5">
+            {(job.matchingSkills ?? []).slice(0, 5).map((s) => (
+              <span
+                key={s}
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded-full"
+              >
+                <CheckCircle2 className="w-3 h-3" /> {s}
+              </span>
+            ))}
+            {(job.missingSkills ?? []).slice(0, 3).map((s) => (
+              <span
+                key={s}
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded-full"
+              >
+                <XCircle className="w-3 h-3" /> {s}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Toggle description */}
         {job.description && (

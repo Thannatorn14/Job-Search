@@ -8,14 +8,23 @@ interface Props {
   loading: boolean;
 }
 
+const MAX_FILE_MB = 10;
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
+
 export default function ResumeInput({ onSubmit, loading }: Props) {
   const [tab, setTab] = useState<"upload" | "paste">("upload");
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const accept = useCallback((f: File) => {
+    setFileError(null);
+    if (f.size > MAX_FILE_BYTES) {
+      setFileError(`File is too large (${(f.size / 1024 / 1024).toFixed(1)} MB). Max is ${MAX_FILE_MB} MB.`);
+      return;
+    }
     if (f.name.endsWith(".pdf") || f.type === "application/pdf") {
       setFile(f);
       setTab("upload");
@@ -26,6 +35,8 @@ export default function ResumeInput({ onSubmit, loading }: Props) {
         setTab("paste");
       };
       reader.readAsText(f);
+    } else {
+      setFileError("Unsupported file type. Please upload a PDF or TXT file.");
     }
   }, []);
 
@@ -103,6 +114,7 @@ export default function ResumeInput({ onSubmit, loading }: Props) {
                 onClick={(e) => {
                   e.stopPropagation();
                   setFile(null);
+                  setFileError(null);
                   if (inputRef.current) inputRef.current.value = "";
                 }}
                 className="flex items-center gap-1 text-sm text-red-500 hover:text-red-700"
@@ -122,6 +134,13 @@ export default function ResumeInput({ onSubmit, loading }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {/* File error */}
+      {fileError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+          {fileError}
+        </p>
       )}
 
       {/* Paste zone */}
