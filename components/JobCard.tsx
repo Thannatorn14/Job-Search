@@ -11,6 +11,9 @@ import {
   ChevronUp,
   CheckCircle2,
   XCircle,
+  Bookmark,
+  Copy,
+  Check,
 } from "lucide-react";
 import { MatchedJob } from "@/lib/types";
 
@@ -24,7 +27,8 @@ function ScorePill({ score }: { score: number }) {
       ? ["bg-amber-50", "text-amber-700", "border-amber-200"]
       : ["bg-red-50", "text-red-600", "border-red-200"];
 
-  const label = score >= 80 ? "Excellent" : score >= 60 ? "Good" : score >= 40 ? "Fair" : "Low";
+  const label =
+    score >= 80 ? "Excellent" : score >= 60 ? "Good" : score >= 40 ? "Fair" : "Low";
 
   return (
     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${bg} ${border}`}>
@@ -36,7 +40,13 @@ function ScorePill({ score }: { score: number }) {
 
 function Bar({ score }: { score: number }) {
   const color =
-    score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-blue-500" : score >= 40 ? "bg-amber-400" : "bg-red-400";
+    score >= 80
+      ? "bg-emerald-500"
+      : score >= 60
+      ? "bg-blue-500"
+      : score >= 40
+      ? "bg-amber-400"
+      : "bg-red-400";
   return (
     <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
       <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
@@ -44,8 +54,17 @@ function Bar({ score }: { score: number }) {
   );
 }
 
-export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }) {
+interface Props {
+  job: MatchedJob;
+  rank: number;
+  isSaved?: boolean;
+  onSave?: () => void;
+  onUnsave?: () => void;
+}
+
+export default function JobCard({ job, rank, isSaved = false, onSave, onUnsave }: Props) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const rawDate = job.postedAt ? new Date(job.postedAt) : null;
   const date =
@@ -53,9 +72,16 @@ export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }
       ? rawDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
       : null;
 
+  function copyUrl() {
+    if (!job.applyUrl) return;
+    navigator.clipboard.writeText(job.applyUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-      {/* Body */}
       <div className="p-5 space-y-3">
         {/* Title row */}
         <div className="flex items-start justify-between gap-3">
@@ -88,7 +114,22 @@ export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }
               </div>
             </div>
           </div>
-          <ScorePill score={job.matchScore} />
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Bookmark toggle */}
+            <button
+              onClick={() => (isSaved ? onUnsave?.() : onSave?.())}
+              title={isSaved ? "Remove bookmark" : "Save job"}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isSaved
+                  ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                  : "text-gray-300 hover:text-gray-500 hover:bg-gray-100"
+              }`}
+            >
+              <Bookmark className="w-4 h-4" fill={isSaved ? "currentColor" : "none"} />
+            </button>
+            <ScorePill score={job.matchScore} />
+          </div>
         </div>
 
         {/* Score bar */}
@@ -125,14 +166,19 @@ export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }
             onClick={() => setOpen(!open)}
             className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
-            {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {open ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
             {open ? "Hide" : "Show"} description
           </button>
         )}
 
         {open && (
           <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line border-t border-gray-100 pt-3">
-            {job.description.slice(0, 900)}{job.description.length > 900 ? "…" : ""}
+            {job.description.slice(0, 900)}
+            {job.description.length > 900 ? "…" : ""}
           </p>
         )}
       </div>
@@ -140,16 +186,31 @@ export default function JobCard({ job, rank }: { job: MatchedJob; rank: number }
       {/* Footer */}
       <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
         <span className="text-xs text-gray-400">via {job.source}</span>
-        {job.applyUrl && (
-          <a
-            href={job.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            Apply Now <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
+        <div className="flex items-center gap-3">
+          {job.applyUrl && (
+            <button
+              onClick={copyUrl}
+              title="Copy apply link"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+          {job.applyUrl && (
+            <a
+              href={job.applyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              Apply Now <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
