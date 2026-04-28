@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config, assertLlm } from "./config";
-import { ResumeProfile, JobListing, MatchedJob } from "./types";
+import { ResumeProfile, JobListing, MatchedJob, ResumeCritique } from "./types";
 
 // ── Timeout helper ─────────────────────────────────────────────────────────────
 
@@ -207,4 +207,108 @@ Write exactly 3 paragraphs:
 Return ONLY the cover letter text. No subject line, no placeholders like [Your Name], no markdown.`;
 
   return callLLM(prompt, 1024);
+}
+
+export async function critiqueResume(
+  profile: ResumeProfile,
+  jobs: MatchedJob[]
+): Promise<ResumeCritique> {
+  // Aggregate skill gaps from matched jobs for market context
+  const missingCounts: Record<string, number> = {};
+  for (const job of jobs) {
+    for (const skill of job.missingSkills ?? []) {
+      const k = skill.trim();
+      if (k) missingCounts[k] = (missingCounts[k] ?? 0) + 1;
+    }
+  }
+  const topMissing = Object.entries(missingCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([skill, count]) => `${skill} (${count}/${jobs.length} jobs)`);
+
+  const avgScore =
+    jobs.length > 0
+      ? Math.round(jobs.reduce((s, j) => s + j.matchScore, 0) / jobs.length)
+      : null;
+
+  const marketSection =
+    jobs.length > 0
+      ? `MARKET FEEDBACK (from ${jobs.length} AI-matched jobs):
+Average match score: ${avgScore}%
+Top skill gaps: ${topMissing.join(", ") || "none identified"}`
+      : "No matched jobs available yet — critique based on profile alone.";
+
+  const prompt = `You are a senior career coach and expert resume reviewer. Analyze this candidate's resume profile and return specific, actionable feedback.
+
+CANDIDATE PROFILE:
+Target roles: ${profile.jobTitles.join(", ")}
+Summary: ${profile.summary}
+Skills listed: ${profile.skills.join(", ")}
+Experience: ${profile.experienceLevel}-level, ${profile.yearsOfExperience} years
+Education: ${profile.education.join("; ")}
+Industries: ${profile.industries.join(", ")}
+
+${marketSection}
+
+Return ONLY a JSON object (no extra text, no markdown fences):
+{
+  "overallScore": number (0–100, be honest and calibrated),
+  "grade": "A+" | "A" | "A-" | "B+" | "B" | "B-" | "C+" | "C" | "D",
+  "headline": "One sentence capturing the biggest strength AND the biggest gap",
+  "sections": [
+    {
+      "name": "Professional Summary",
+      "score": number,
+      "status": "strong" | "good" | "needs-work" | "missing",
+      "issues": ["up to 2 specific issues"],
+      "suggestions": ["up to 2 concrete fixes"]
+    },
+    {
+      "name": "Work Experience",
+      "score": number,
+      "status": "strong" | "good" | "needs-work" | "missing",
+      "issues": ["up to 2 specific issues"],
+      "suggestions": ["up to 2 concrete fixes"]
+    },
+    {
+      "name": "Skills Section",
+      "score": number,
+      "status": "strong" | "good" | "needs-work" | "missing",
+      "issues": ["up to 2 specific issues"],
+      "suggestions": ["up to 2 concrete fixes"]
+    },
+    {
+      "name": "Education",
+      "score": number,
+      "status": "strong" | "good" | "needs-work" | "missing",
+      "issues": ["up to 2 specific issues"],
+      "suggestions": ["up to 2 concrete fixes"]
+    },
+    {
+      "name": "ATS & Keywords",
+      "score": number,
+      "status": "strong" | "good" | "needs-work" | "missing",
+      "issues": ["up to 2 specific issues"],
+      "suggestions": ["up to 2 concrete fixes"]
+    }
+  ],
+  "quickWins": ["3–5 specific improvements each doable in under 10 minutes"],
+  "marketAlignment": "2 sentences: how well the candidate fits current market demand and what single change would most improve their match rate"
+}`;
+
+  const json = await callLLM(prompt, 2048);
+  try {
+    const raw = JSON.parse(json);
+    // Ensure required fields exist
+    return {
+      overallScore: Math.min(100, Math.max(0, raw.overallScore ?? 50)),
+      grade: raw.grade ?? "B",
+      headline: raw.headline ?? "",
+      sections: Array.isArray(raw.sections) ? raw.sections : [],
+      quickWins: Array.isArray(raw.quickWins) ? raw.quickWins : [],
+      marketAlignment: raw.marketAlignment ?? "",
+    };
+  } catch {
+    throw new Error("Failed to parse resume critique. Please try again.");
+  }
 }

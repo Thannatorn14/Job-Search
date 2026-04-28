@@ -38,3 +38,20 @@ export interface SearchStatus {
   message: string;
   progress: number;
 }
+
+export interface CritiqueSection {
+  name: string;
+  score: number;
+  status: "strong" | "good" | "needs-work" | "missing";
+  issues: string[];
+  suggestions: string[];
+}
+
+export interface ResumeCritique {
+  overallScore: number;
+  grade: string;
+  headline: string;
+  sections: CritiqueSection[];
+  quickWins: string[];
+  marketAlignment: string;
+}

@@ -16,6 +16,7 @@ import ProfileCard from "@/components/ProfileCard";
 import JobCard from "@/components/JobCard";
 import ProgressBar from "@/components/ProgressBar";
 import SkillGapPanel from "@/components/SkillGapPanel";
+import ResumeCritiquePanel from "@/components/ResumeCritiquePanel";
 import SavedJobsTab from "@/components/SavedJobsTab";
 import CoverLetterModal from "@/components/CoverLetterModal";
 import { useSavedJobs } from "@/hooks/useSavedJobs";
@@ -268,6 +269,11 @@ export default function Page() {
 
         {/* ── Profile card ── */}
         {profile && <ProfileCard profile={profile} />}
+
+        {/* ── Resume critique panel ── */}
+        {profile && (
+          <ResumeCritiquePanel profile={profile} jobs={jobs} />
+        )}
 
         {/* ── Skill gap panel ── */}
         {jobs.length > 0 && <SkillGapPanel jobs={jobs} />}
