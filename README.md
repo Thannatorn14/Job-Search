@@ -170,8 +170,4 @@ Resume (PDF / text)
 
 ## Team
 
-| Name | ID |
-|------|----|
-| Patiphan Tangmongkolpaisan | 6588103 |
-| Thanatorn Thongsuk | 6588109 |
-| Anecha Prasobvittaya | 6588153 |
+<!-- Add team members here -->
