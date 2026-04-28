@@ -14,6 +14,7 @@ import {
   Bookmark,
   Copy,
   Check,
+  FileText,
 } from "lucide-react";
 import { MatchedJob } from "@/lib/types";
 
@@ -60,9 +61,10 @@ interface Props {
   isSaved?: boolean;
   onSave?: () => void;
   onUnsave?: () => void;
+  onCoverLetter?: () => void;
 }
 
-export default function JobCard({ job, rank, isSaved = false, onSave, onUnsave }: Props) {
+export default function JobCard({ job, rank, isSaved = false, onSave, onUnsave, onCoverLetter }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -187,6 +189,15 @@ export default function JobCard({ job, rank, isSaved = false, onSave, onUnsave }
       <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
         <span className="text-xs text-gray-400">via {job.source}</span>
         <div className="flex items-center gap-3">
+          {onCoverLetter && (
+            <button
+              onClick={onCoverLetter}
+              title="Generate cover letter"
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5" /> Cover Letter
+            </button>
+          )}
           {job.applyUrl && (
             <button
               onClick={copyUrl}

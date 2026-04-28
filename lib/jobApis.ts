@@ -1,24 +1,24 @@
+import { config } from "./config";
 import { JobListing } from "./types";
 
-const COUNTRY = process.env.ADZUNA_COUNTRY || "us";
-const ADZUNA_ID = process.env.ADZUNA_APP_ID || "";
-const ADZUNA_KEY = process.env.ADZUNA_APP_KEY || "";
-const RAPID_KEY = process.env.RAPIDAPI_KEY || "";
+// Each external job API call times out after 8 s so a slow source
+// can't block the whole search.
+const FETCH_TIMEOUT = AbortSignal.timeout(8_000);
 
 // ── Adzuna ────────────────────────────────────────────────────────────────────
 
 async function searchAdzuna(query: string, perPage = 8): Promise<JobListing[]> {
-  if (!ADZUNA_ID || !ADZUNA_KEY) return [];
+  if (!config.hasAdzuna) return [];
   const params = new URLSearchParams({
-    app_id: ADZUNA_ID,
-    app_key: ADZUNA_KEY,
+    app_id: config.adzunaAppId!,
+    app_key: config.adzunaAppKey!,
     results_per_page: String(perPage),
     what: query,
   });
   try {
     const res = await fetch(
-      `https://api.adzuna.com/v1/api/jobs/${COUNTRY}/search/1?${params}`,
-      { cache: "no-store" }
+      `https://api.adzuna.com/v1/api/jobs/${config.adzunaCountry}/search/1?${params}`,
+      { cache: "no-store", signal: FETCH_TIMEOUT }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -42,7 +42,7 @@ async function searchAdzuna(query: string, perPage = 8): Promise<JobListing[]> {
 // ── JSearch (RapidAPI) ────────────────────────────────────────────────────────
 
 async function searchJSearch(query: string, perPage = 6): Promise<JobListing[]> {
-  if (!RAPID_KEY) return [];
+  if (!config.hasJSearch) return [];
   const params = new URLSearchParams({
     query,
     page: "1",
@@ -52,10 +52,11 @@ async function searchJSearch(query: string, perPage = 6): Promise<JobListing[]> 
   try {
     const res = await fetch(`https://jsearch.p.rapidapi.com/search?${params}`, {
       headers: {
-        "X-RapidAPI-Key": RAPID_KEY,
+        "X-RapidAPI-Key": config.rapidApiKey!,
         "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
       },
       cache: "no-store",
+      signal: FETCH_TIMEOUT,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -84,6 +85,7 @@ async function searchRemotive(query: string, limit = 8): Promise<JobListing[]> {
     const params = new URLSearchParams({ search: query });
     const res = await fetch(`https://remotive.com/api/remote-jobs?${params}`, {
       cache: "no-store",
+      signal: FETCH_TIMEOUT,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -112,6 +114,7 @@ async function searchArbeitnow(query: string, perPage = 6): Promise<JobListing[]
     const params = new URLSearchParams({ q: query });
     const res = await fetch(`https://www.arbeitnow.com/api/job-board-api?${params}`, {
       cache: "no-store",
+      signal: FETCH_TIMEOUT,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -139,6 +142,7 @@ async function searchTheMuse(query: string, perPage = 6): Promise<JobListing[]> 
     const params = new URLSearchParams({ query, page: "1", descending: "true" });
     const res = await fetch(`https://www.themuse.com/api/public/jobs?${params}`, {
       cache: "no-store",
+      signal: FETCH_TIMEOUT,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -202,16 +206,16 @@ export async function searchAllSources(queries: string[]): Promise<JobListing[]>
   const results = await Promise.all(promises);
   const all = results.flat();
 
-  // Deduplicate by job id first, then by title + company
+  // Deduplicate: by id first, then by normalised title + company
   const seenIds = new Set<string>();
   const seenTitleCompany = new Set<string>();
 
   return all.filter((j) => {
     if (seenIds.has(j.id)) return false;
-    const titleKey = `${j.title.toLowerCase().trim()}|${j.company.toLowerCase().trim()}`;
-    if (seenTitleCompany.has(titleKey)) return false;
+    const key = `${j.title.toLowerCase().trim()}|${j.company.toLowerCase().trim()}`;
+    if (seenTitleCompany.has(key)) return false;
     seenIds.add(j.id);
-    seenTitleCompany.add(titleKey);
+    seenTitleCompany.add(key);
     return true;
   });
 }

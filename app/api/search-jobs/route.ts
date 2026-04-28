@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchAllSources } from "@/lib/jobApis";
 import { matchJobsToResume } from "@/lib/claude";
+import { assertLlm } from "@/lib/config";
 import { ResumeProfile } from "@/lib/types";
+
+// Allow up to 60 s on Vercel Pro / AWS Lambda
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    assertLlm();
+
     const body = await req.json();
     const profile: ResumeProfile = body.profile;
 
@@ -14,7 +20,10 @@ export async function POST(req: NextRequest) {
 
     if (!profile.searchQueries || profile.searchQueries.length === 0) {
       return NextResponse.json(
-        { error: "Resume profile is missing search queries. Please re-analyze your resume." },
+        {
+          error:
+            "Resume profile is missing search queries. Please re-analyze your resume.",
+        },
         { status: 400 }
       );
     }
@@ -33,10 +42,7 @@ export async function POST(req: NextRequest) {
     const matched = await matchJobsToResume(profile, jobs);
     matched.sort((a, b) => b.matchScore - a.matchScore);
 
-    return NextResponse.json({
-      jobs: matched,
-      total: jobs.length,
-    });
+    return NextResponse.json({ jobs: matched, total: jobs.length });
   } catch (err) {
     console.error("[search-jobs]", err);
     return NextResponse.json(

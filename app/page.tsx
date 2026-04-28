@@ -17,6 +17,7 @@ import JobCard from "@/components/JobCard";
 import ProgressBar from "@/components/ProgressBar";
 import SkillGapPanel from "@/components/SkillGapPanel";
 import SavedJobsTab from "@/components/SavedJobsTab";
+import CoverLetterModal from "@/components/CoverLetterModal";
 import { useSavedJobs } from "@/hooks/useSavedJobs";
 import { MatchedJob, ResumeProfile, SearchStatus } from "@/lib/types";
 
@@ -37,6 +38,9 @@ export default function Page() {
 
   const { saved, saveJob, removeJob, updateStatus, isSaved } = useSavedJobs();
   const savedCount = Object.keys(saved).length;
+
+  // Cover letter modal
+  const [coverLetterJob, setCoverLetterJob] = useState<MatchedJob | null>(null);
 
   const loading =
     status.stage === "analyzing" ||
@@ -412,6 +416,7 @@ export default function Page() {
                       isSaved={isSaved(job.id)}
                       onSave={() => saveJob(job)}
                       onUnsave={() => removeJob(job.id)}
+                      onCoverLetter={profile ? () => setCoverLetterJob(job) : undefined}
                     />
                   ))}
                 </div>
@@ -446,6 +451,15 @@ export default function Page() {
         AI Job Matcher · Built with Claude by Anthropic · Job data via Adzuna, JSearch, Remotive,
         Arbeitnow &amp; The Muse
       </footer>
+
+      {/* ── Cover letter modal ── */}
+      {coverLetterJob && profile && (
+        <CoverLetterModal
+          profile={profile}
+          job={coverLetterJob}
+          onClose={() => setCoverLetterJob(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,24 +1,32 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { config, assertLlm } from "./config";
 import { ResumeProfile, JobListing, MatchedJob } from "./types";
 
-// ── Provider detection ────────────────────────────────────────────────────────
-const USE_OLLAMA = !!process.env.OLLAMA_URL;
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
+// ── Timeout helper ─────────────────────────────────────────────────────────────
 
-// ── Low-level helpers ─────────────────────────────────────────────────────────
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    ),
+  ]);
+}
+
+// ── Low-level providers ───────────────────────────────────────────────────────
 
 async function callOllama(prompt: string, maxTokens = 2048): Promise<string> {
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+  const res = await fetch(`${config.ollamaUrl}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
+      model: config.ollamaModel,
       prompt,
       stream: false,
       format: "json",
       options: { num_predict: maxTokens },
     }),
+    signal: AbortSignal.timeout(90_000),
   });
   if (!res.ok) throw new Error(`Ollama error: ${res.status} ${res.statusText}`);
   const data = await res.json();
@@ -26,7 +34,7 @@ async function callOllama(prompt: string, maxTokens = 2048): Promise<string> {
 }
 
 async function callClaude(prompt: string, maxTokens = 2048): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: config.anthropicApiKey });
   const msg = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: maxTokens,
@@ -36,10 +44,15 @@ async function callClaude(prompt: string, maxTokens = 2048): Promise<string> {
 }
 
 async function callLLM(prompt: string, maxTokens = 2048): Promise<string> {
-  const raw = USE_OLLAMA
-    ? await callOllama(prompt, maxTokens)
-    : await callClaude(prompt, maxTokens);
-  // Strip accidental markdown fences
+  assertLlm();
+  const raw = await withTimeout(
+    config.useOllama
+      ? callOllama(prompt, maxTokens)
+      : callClaude(prompt, maxTokens),
+    120_000,
+    "LLM call"
+  );
+  // Strip accidental markdown fences the model sometimes wraps JSON in
   return raw.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "").trim();
 }
 
@@ -88,8 +101,11 @@ ${truncated}`;
     education: Array.isArray(parsed.education) ? parsed.education : [],
     industries: Array.isArray(parsed.industries) ? parsed.industries : [],
     searchQueries: Array.isArray(parsed.searchQueries) ? parsed.searchQueries : [],
-    experienceLevel: VALID_LEVELS.includes(parsed.experienceLevel) ? parsed.experienceLevel : "mid",
-    yearsOfExperience: typeof parsed.yearsOfExperience === "number" ? parsed.yearsOfExperience : 0,
+    experienceLevel: VALID_LEVELS.includes(parsed.experienceLevel)
+      ? parsed.experienceLevel
+      : "mid",
+    yearsOfExperience:
+      typeof parsed.yearsOfExperience === "number" ? parsed.yearsOfExperience : 0,
     summary: parsed.summary ?? "",
   };
 }
@@ -160,4 +176,35 @@ Return array of objects (one per job):
       matchingSkills: Array.isArray(s.matchingSkills) ? s.matchingSkills : [],
       missingSkills: Array.isArray(s.missingSkills) ? s.missingSkills : [],
     }));
+}
+
+export async function generateCoverLetter(
+  profile: ResumeProfile,
+  job: JobListing
+): Promise<string> {
+  const candidateName = profile.name ?? "the applicant";
+
+  const prompt = `Write a professional, tailored cover letter for this job application.
+
+CANDIDATE:
+Name: ${candidateName}
+Skills: ${profile.skills.slice(0, 12).join(", ")}
+Experience: ${profile.experienceLevel}-level, ${profile.yearsOfExperience} years
+Education: ${profile.education.join("; ")}
+Summary: ${profile.summary}
+
+JOB:
+Title: ${job.title}
+Company: ${job.company}
+Location: ${job.location}
+Description: ${job.description.slice(0, 700)}
+
+Write exactly 3 paragraphs:
+1. Opening — genuine enthusiasm for this specific role and company, referencing something specific from the description.
+2. Body — connect the candidate's top 3 relevant skills or achievements to the job's key requirements.
+3. Closing — confident call to action, invite to discuss further, sign off with the candidate's name.
+
+Return ONLY the cover letter text. No subject line, no placeholders like [Your Name], no markdown.`;
+
+  return callLLM(prompt, 1024);
 }
